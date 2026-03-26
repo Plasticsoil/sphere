@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Wireframe Sphere</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #FF8FF4; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 70%);
+        }
+
+        canvas {
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        #echo-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            pointer-events: none;
+            display: none;
+        }
+
+        #card-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #card-overlay.visible {
+            display: block;
+        }
+
+        #card-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #info-card {
+            position: fixed;
+            width: 380px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(50px);
+            -webkit-backdrop-filter: blur(50px);
+            border: 0.5px solid rgba(255, 255, 255, 1);
+            border-radius: 16px;
+            padding: 32px;
+            font-family: 'Inter', sans-serif;
+            color: #fff;
+            pointer-events: auto;
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info-card.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #card-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 28px;
+            height: 28px;
+            background: none;
+            border: 0.5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s;
+        }
+
+        #card-close:hover {
+            border-color: #fff;
+        }
+
+        #card-title {
+            font-size: 22px;
+            font-weight: 400;
+            margin-bottom: 20px;
+            letter-spacing: -0.01em;
+        }
+
+        #card-image {
+            width: 100%;
+            height: 180px;
+            background: #373737;
+            border-radius: 10px;
+            margin-bottom: 24px;
+        }
+
+        #card-text {
+            font-size: 12.5px;
+            font-weight: 400;
+            line-height: 1.75;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #btn-connectors {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9;
+            mix-blend-mode: difference;
+        }
+
+        #buttons-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .orbit-btn {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            pointer-events: auto;
+            user-select: none;
+            white-space: nowrap;
+            will-change: transform;
+            mix-blend-mode: difference;
+            transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+        }
+
+        .orbit-btn:hover {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .orbit-btn.active {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .btn-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+        .orbit-btn:hover .btn-icon { opacity: 1; }
+        .orbit-btn.active .btn-icon { opacity: 1; }
+
+        .btn-label {
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .toggle-switch {
+            width: 22px;
+            height: 11px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.25s;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            top: 2px;
+            left: 2px;
+            transition: left 0.25s ease, background 0.25s;
+        }
+        .orbit-btn.active .toggle-switch {
+            background: rgba(255, 255, 255, 0.18);
+        }
+        .orbit-btn.active .toggle-switch::after {
+            left: 13px;
+            background: #fff;
+        }
+
+        .orbit-btn.is-action .btn-label {
+            opacity: 0.5;
+        }
+        .orbit-btn.is-action:hover .btn-label {
+            opacity: 1;
+        }
+
+        .orbit-btn.has-slider {
+            padding: 9px 14px;
+            gap: 8px;
+        }
+
+        .btn-slider {
+            width: 44px;
+            height: 12px;
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .slider-track {
+            width: 100%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            position: absolute;
+        }
+
+        .slider-thumb {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.35);
+            top: 50%;
+            left: 0%;
+            transform: translate(-50%, -50%);
+            transition: left 0.15s ease, background 0.2s;
+            pointer-events: none;
+        }
+
+        .orbit-btn.active .slider-thumb {
+            background: #fff;
+        }
+
+        .ctrl-bar {
+            position: fixed;
+            top: 20px;
+            display: flex;
+            z-index: 20;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 3px;
+            overflow: hidden;
+            mix-blend-mode: difference;
+        }
+        #toolbar-left { left: 20px; }
+        #toolbar-right { right: 20px; }
+
+        .toolbar-btn {
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            cursor: pointer;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .toolbar-btn:last-child { border-right: none; }
+
+        .toolbar-btn svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0.4;
+            transition: opacity 0.25s ease;
+        }
+
+        .toolbar-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .toolbar-btn:hover svg { opacity: 1; }
+
+        .toolbar-btn.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .toolbar-btn.active svg { opacity: 1; }
+
+        html.inverted { filter: invert(1) hue-rotate(180deg); }
+
+        #dof-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at center, transparent 10%, black 60%);
+            mask-image: radial-gradient(ellipse 50% 50% at center, transparent 10%, black 60%);
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        #dof-overlay.active { opacity: 1; }
+
+        #library-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 280px;
+            height: 100%;
+            background: rgba(8, 8, 8, 0.92);
+            border-left: 1px solid rgba(255, 255, 255, 0.06);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        #library-panel.open { transform: translateX(0); }
+
+        #lib-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        #lib-header h2 {
+            font-family: 'Inter', sans-serif;
+            font-size: 9px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: rgba(255, 255, 255, 0.35);
+            margin: 0;
+        }
+        #lib-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        #lib-close:hover { color: rgba(255, 255, 255, 0.7); }
+
+        #lib-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        #lib-list::-webkit-scrollbar { width: 3px; }
+        #lib-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 2px; }
+
+        .lib-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            cursor: default;
+            transition: background 0.2s;
+        }
+        .lib-item:hover { background: rgba(255, 255, 255, 0.02); }
+
+        .lib-thumb {
+            width: 56px;
+            height: 32px;
+            border-radius: 2px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+            background: #000;
+        }
+
+        .lib-meta { flex: 1; min-width: 0; }
+        .lib-type {
+            font-family: 'Inter', monospace;
+            font-size: 9px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: 3px;
+        }
+        .lib-type .lib-type-tag {
+            color: var(--accent);
+            opacity: 0.7;
+        }
+        .lib-fx {
+            font-family: 'Inter', sans-serif;
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.18);
+            letter-spacing: 0.04em;
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .lib-actions {
+            display: flex;
+            gap: 2px;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .lib-item:hover .lib-actions { opacity: 1; }
+
+        .lib-action {
+            width: 22px;
+            height: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 2px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            padding: 0;
+        }
+        .lib-action:hover {
+            color: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .lib-action svg { width: 10px; height: 10px; }
+
+        #lib-empty {
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.12);
+            text-align: center;
+            padding: 40px 18px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .toolbar-btn.rec-active { color: #ff4444; }
+        .toolbar-btn.rec-active svg { opacity: 1; }
+
+        .color-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: var(--accent);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            flex-shrink: 0;
+        }
+        #accent-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+        }
+
+        .toolbar-btn.gif-progress { color: #4ade80; }
+        .toolbar-btn.gif-progress svg { opacity: 1; }
+
+        body.inside-view #btn-connectors {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.6s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="dof-overlay"></div>
+    <div id="card-overlay">
+        <svg id="card-line"><line id="connector-line" stroke="rgba(255,255,255,0.5)" stroke-width="1"/></svg>
+        <div id="info-card">
+            <button id="card-close">&times;</button>
+            <div id="card-title">Create</div>
+            <div id="card-image"></div>
+            <div id="card-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</div>
+        </div>
+    </div>
+
+    <svg id="btn-connectors"></svg>
+
+    <div id="toolbar-left" class="ctrl-bar">
+        <button class="toolbar-btn" data-action="reset" title="Reset">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4l8 8M12 4l-8 8"/>
+            </svg>
+            <span>Reset</span>
+        </button>
+        <button class="toolbar-btn" data-action="random" title="Shuffle">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 4h3l6 8h3M2 12h3l6-8h3"/><path d="M13 3l1.5 1.5L13 6"/><path d="M13 10l1.5 1.5L13 14"/>
+            </svg>
+            <span>Shuffle</span>
+        </button>
+        <button class="toolbar-btn" data-action="party" title="Party Mode">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M12.5 3.5l-1.4 1.4M4.9 11.1l-1.4 1.4"/>
+            </svg>
+            <span>Party</span>
+        </button>
+        <button class="toolbar-btn" data-action="inside" title="Inside View">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5"/>
+                <circle cx="8" cy="8" r="2.5"/>
+            </svg>
+            <span>View</span>
+        </button>
+        <button class="toolbar-btn" data-action="color" title="Accent Color">
+            <div class="color-swatch"></div>
+            <span>Color</span>
+            <input type="color" id="accent-input" value="#FF8FF4">
+        </button>
+    </div>
+
+    <div id="toolbar-right" class="ctrl-bar">
+        <button class="toolbar-btn" data-action="record" title="Record">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="square">
+                <circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Rec</span>
+        </button>
+        <button class="toolbar-btn" data-action="photo" title="Screenshot">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="square">
+                <rect x="1.5" y="3.5" width="13" height="10" rx="1"/><circle cx="8" cy="8.5" r="2.5"/><path d="M4 3.5V2.5h3v1"/>
+            </svg>
+            <span>Photo</span>
+        </button>
+        <button class="toolbar-btn" data-action="gif" title="Export GIF">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="square">
+                <rect x="2" y="2" width="12" height="12" rx="1"/><path d="M5 9V7.5C5 6.7 5.7 6 6.5 6H7"/><path d="M9 6h2v1.5h-1V9h1"/><path d="M13 6v3"/>
+            </svg>
+            <span>GIF</span>
+        </button>
+        <button class="toolbar-btn" data-action="json" title="Export JSON Preset">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="square">
+                <path d="M4 2C3 2 2 3 2 4v2c0 1-1 1.5-1 2s1 1 1 2v2c0 1 1 2 2 2"/><path d="M12 2c1 0 2 1 2 2v2c0 1 1 1.5 1 2s-1 1-1 2v2c0 1-1 2-2 2"/>
+            </svg>
+            <span>JSON</span>
+        </button>
+        <button class="toolbar-btn" data-action="library" title="Library">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="square">
+                <path d="M3 2v12M7 2v12M11 2v12M1 14h14M1 2h14"/>
+            </svg>
+            <span>Library</span>
+        </button>
+    </div>
+
+    <div id="library-panel">
+        <div id="lib-header">
+            <h2>Library</h2>
+            <button id="lib-close">&times;</button>
+        </div>
+        <div id="lib-list"></div>
+    </div>
+
+    <div id="buttons-container">
+        <div class="orbit-btn active is-toggle" data-id="grid">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 2h12v12H2z"/><path d="M2 6h12M2 10h12M6 2v12M10 2v12"/></svg>
+            <span class="btn-label">Grid</span>
+            <div class="toggle-switch"></div>
+        </div>
+        <div class="orbit-btn is-toggle" data-id="dots">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor" stroke="none"><rect x="3" y="3" width="2" height="2"/><rect x="7" y="3" width="2" height="2"/><rect x="11" y="3" width="2" height="2"/><rect x="5" y="7" width="2" height="2"/><rect x="9" y="7" width="2" height="2"/><rect x="3" y="11" width="2" height="2"/><rect x="7" y="11" width="2" height="2"/><rect x="11" y="11" width="2" height="2"/></svg>
+            <span class="btn-label">Dots</span>
+            <div class="toggle-switch"></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="wave">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M1 8l2-3 2 3 2-3 2 3 2-3 2 3"/><path d="M1 11l2-3 2 3 2-3 2 3 2-3 2 3" opacity="0.4"/></svg>
+            <span class="btn-label">Wave</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn is-action" data-id="rotate">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M12 3l2 2-2 2"/><path d="M14 5H8c-3 0-4 2-4 3s1 3 4 3h1"/></svg>
+            <span class="btn-label">Rotate</span>
+        </div>
+        <div class="orbit-btn has-slider" data-id="scale">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M10 2h4v4"/><path d="M6 14H2v-4"/><path d="M14 2L9 7"/><path d="M2 14l5-5"/></svg>
+            <span class="btn-label">Scale</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="density">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12"/></svg>
+            <span class="btn-label">Density</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="pulse">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M1 8h3l2-5 4 10 2-5h3"/></svg>
+            <span class="btn-label">Pulse</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn is-action" data-id="vase">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M6 2h4M6 2v2c0 1-2 3-2 5s1.5 4 4 4 4-2 4-4-2-4-2-5V2"/></svg>
+            <span class="btn-label">Vase</span>
+        </div>
+        <div class="orbit-btn is-toggle" data-id="invert">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10"/><path d="M8 3v10H3V3z" fill="currentColor" stroke="none"/></svg>
+            <span class="btn-label">Invert</span>
+            <div class="toggle-switch"></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="echo">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><rect x="2" y="2" width="8" height="8" opacity="0.25"/><rect x="4" y="4" width="8" height="8" opacity="0.5"/><rect x="6" y="6" width="8" height="8"/></svg>
+            <span class="btn-label">Echo</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn is-toggle" data-id="flat">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M2 5h12M2 11h12"/><path d="M4 5v6M8 5v6M12 5v6"/></svg>
+            <span class="btn-label">Flat</span>
+            <div class="toggle-switch"></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="spin">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"><path d="M11 3l2 2-2 2"/><path d="M5 9l-2 2 2 2"/><path d="M13 5c0-1-2-3-5-3S3 4 3 5"/><path d="M3 11c0 1 2 3 5 3s5-2 5-3"/></svg>
+            <span class="btn-label">Spin</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+        <div class="orbit-btn has-slider" data-id="noise">
+            <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor" stroke="none"><rect x="2" y="3" width="1.5" height="1.5"/><rect x="6" y="2" width="1.5" height="1.5"/><rect x="11" y="4" width="1.5" height="1.5"/><rect x="13" y="2" width="1.5" height="1.5"/><rect x="4" y="7" width="1.5" height="1.5"/><rect x="9" y="6" width="1.5" height="1.5"/><rect x="12" y="8" width="1.5" height="1.5"/><rect x="2" y="11" width="1.5" height="1.5"/><rect x="7" y="10" width="1.5" height="1.5"/><rect x="11" y="12" width="1.5" height="1.5"/><rect x="14" y="11" width="1.5" height="1.5"/></svg>
+            <span class="btn-label">Noise</span>
+            <div class="btn-slider"><div class="slider-track"></div><div class="slider-thumb"></div></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+// ============================================================
+// Scene Setup
+// ============================================================
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+    50,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+camera.position.z = 5;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+const echoCanvas = document.createElement('canvas');
+echoCanvas.id = 'echo-canvas';
+document.body.insertBefore(echoCanvas, renderer.domElement);
+const echoCtx = echoCanvas.getContext('2d');
+
+const compCanvas = document.createElement('canvas');
+const compCtx = compCanvas.getContext('2d');
+let isRecording = false;
+
+function resizeEchoCanvas() {
+    echoCanvas.width = window.innerWidth;
+    echoCanvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    compCanvas.width = Math.round(window.innerWidth * dpr);
+    compCanvas.height = Math.round(window.innerHeight * dpr);
+}
+resizeEchoCanvas();
+
+function drawComposite() {
+    const w = compCanvas.width, h = compCanvas.height;
+    const g = compCtx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.5);
+    g.addColorStop(0, '#0a0a0a');
+    g.addColorStop(1, '#000000');
+    compCtx.fillStyle = g;
+    compCtx.fillRect(0, 0, w, h);
+    if (echoActive && echoCanvas.style.display !== 'none') {
+        compCtx.drawImage(echoCanvas, 0, 0, w, h);
+    }
+    compCtx.drawImage(renderer.domElement, 0, 0, w, h);
+}
+
+// ============================================================
+// Custom Shader Material (Faded Back-Face Lines)
+// ============================================================
+
+const vertexShader = `
+    attribute vec3 vertexNormal;
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+
+    void main() {
+        vNormal = normalize(normalMatrix * vertexNormal);
+        vec4 worldPos = modelViewMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPos.xyz;
+        gl_Position = projectionMatrix * worldPos;
+    }
+`;
+
+const fragmentShader = `
+    precision mediump float;
+
+    uniform vec3 uColor;
+    uniform float uOpacityFront;
+    uniform float uOpacityBack;
+    uniform float uViewInside;
+
+    varying vec3 vNormal;
+    varying vec3 vWorldPosition;
+
+    void main() {
+        vec3 viewDir = normalize(-vWorldPosition);
+        float facing = dot(vNormal, viewDir);
+        float facingAdj = mix(facing, abs(facing), uViewInside);
+        float opacity = mix(uOpacityBack, uOpacityFront, smoothstep(-0.1, 0.3, facingAdj));
+        gl_FragColor = vec4(uColor, opacity);
+    }
+`;
+
+function createLineMaterial() {
+    return new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms: {
+            uColor: { value: new THREE.Color(1.0, 1.0, 1.0) },
+            uOpacityFront: { value: 0.5 },
+            uOpacityBack: { value: 0.06 },
+            uViewInside: { value: 0.0 },
+        },
+        transparent: true,
+        depthWrite: false,
+    });
+}
+
+// ============================================================
+// Wireframe Sphere Construction
+// ============================================================
+
+const SPHERE_RADIUS = 1.5;
+const SEGMENTS = 128;
+const LATITUDE_COUNT = 24;
+const LONGITUDE_COUNT = 36;
+
+const sphereGroup = new THREE.Group();
+
+function buildLatitudeLines(latCount) {
+    for (let i = 0; i <= latCount; i++) {
+        const phi = (i / latCount) * Math.PI;
+        const y = SPHERE_RADIUS * Math.cos(phi);
+        const ringRadius = SPHERE_RADIUS * Math.sin(phi);
+
+        if (ringRadius < 0.01) continue;
+
+        const points = [];
+        const normals = [];
+
+        for (let j = 0; j <= SEGMENTS; j++) {
+            const theta = (j / SEGMENTS) * Math.PI * 2;
+            const x = ringRadius * Math.cos(theta);
+            const z = ringRadius * Math.sin(theta);
+            points.push(new THREE.Vector3(x, y, z));
+
+            normals.push(x / SPHERE_RADIUS, y / SPHERE_RADIUS, z / SPHERE_RADIUS);
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        geometry.setAttribute(
+            'vertexNormal',
+            new THREE.Float32BufferAttribute(normals, 3)
+        );
+
+        const line = new THREE.Line(geometry, createLineMaterial());
+        sphereGroup.add(line);
+    }
+}
+
+function buildLongitudeLines(lonCount) {
+    for (let i = 0; i < lonCount; i++) {
+        const theta = (i / lonCount) * Math.PI * 2;
+        const points = [];
+        const normals = [];
+
+        for (let j = 0; j <= SEGMENTS; j++) {
+            const phi = (j / SEGMENTS) * Math.PI;
+            const x = SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta);
+            const y = SPHERE_RADIUS * Math.cos(phi);
+            const z = SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta);
+            points.push(new THREE.Vector3(x, y, z));
+
+            normals.push(x / SPHERE_RADIUS, y / SPHERE_RADIUS, z / SPHERE_RADIUS);
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        geometry.setAttribute(
+            'vertexNormal',
+            new THREE.Float32BufferAttribute(normals, 3)
+        );
+
+        const line = new THREE.Line(geometry, createLineMaterial());
+        sphereGroup.add(line);
+    }
+}
+
+buildLatitudeLines(LATITUDE_COUNT);
+buildLongitudeLines(LONGITUDE_COUNT);
+
+// ============================================================
+// Intersection Dots (Lat x Lon Crossings)
+// ============================================================
+
+const dotVertexShader = `
+    attribute vec3 vertexNormal;
+    uniform vec3 uHoverPoint;
+    uniform float uHoverActive;
+    uniform float uMaxSize;
+    uniform float uInfluenceRadius;
+    uniform float uViewInside;
+    uniform float uTime;
+    uniform float uDotsOn;
+
+    varying float vOpacity;
+
+    void main() {
+        vec3 nrm = normalize(normalMatrix * vertexNormal);
+        vec4 worldPos = modelViewMatrix * vec4(position, 1.0);
+        vec3 viewDir = normalize(-worldPos.xyz);
+        float facing = dot(nrm, viewDir);
+        float facingAdj = mix(facing, abs(facing), uViewInside);
+        float backFade = smoothstep(-0.1, 0.3, facingAdj);
+
+        float dist = distance(position, uHoverPoint);
+        float t = 1.0 - smoothstep(0.0, uInfluenceRadius, dist);
+        float sizeFactor = t * t;
+
+        float hoverSize = uMaxSize * sizeFactor * uHoverActive * backFade;
+
+        float phase = position.x * 3.7 + position.y * 5.3 + position.z * 2.1;
+        float breath = 0.5 + 0.5 * sin(uTime * 1.5 + phase);
+        float alwaysSize = 0.08 * breath * backFade;
+
+        float size = mix(hoverSize, max(hoverSize, alwaysSize), uDotsOn);
+        float perspective = 300.0 / length(worldPos.xyz);
+
+        float hoverOp = backFade * sizeFactor * uHoverActive;
+        float alwaysOp = backFade * breath * 0.6;
+        vOpacity = mix(hoverOp, max(hoverOp, alwaysOp), uDotsOn);
+
+        gl_PointSize = size * perspective;
+        gl_Position = projectionMatrix * worldPos;
+    }
+`;
+
+const dotFragmentShader = `
+    precision mediump float;
+    uniform vec3 uDotColor;
+    varying float vOpacity;
+
+    void main() {
+        float dist = distance(gl_PointCoord, vec2(0.5));
+        if (dist > 0.5) discard;
+        float alpha = 1.0 - smoothstep(0.35, 0.5, dist);
+        gl_FragColor = vec4(uDotColor, alpha * vOpacity);
+    }
+`;
+
+const intersectionPositions = [];
+const intersectionNormals = [];
+
+for (let i = 1; i < LATITUDE_COUNT; i++) {
+    const phi = (i / LATITUDE_COUNT) * Math.PI;
+    for (let j = 0; j < LONGITUDE_COUNT; j++) {
+        const theta = (j / LONGITUDE_COUNT) * Math.PI * 2;
+        const x = SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta);
+        const y = SPHERE_RADIUS * Math.cos(phi);
+        const z = SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta);
+
+        intersectionPositions.push(x, y, z);
+        intersectionNormals.push(x / SPHERE_RADIUS, y / SPHERE_RADIUS, z / SPHERE_RADIUS);
+    }
+}
+
+const dotsGeometry = new THREE.BufferGeometry();
+dotsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(intersectionPositions, 3));
+dotsGeometry.setAttribute('vertexNormal', new THREE.Float32BufferAttribute(intersectionNormals, 3));
+
+const dotsMaterial = new THREE.ShaderMaterial({
+    vertexShader: dotVertexShader,
+    fragmentShader: dotFragmentShader,
+    uniforms: {
+        uHoverPoint: { value: new THREE.Vector3(0, 0, 100) },
+        uHoverActive: { value: 0.0 },
+        uMaxSize: { value: 0.4 },
+        uInfluenceRadius: { value: 2.2 },
+        uDotColor: { value: new THREE.Color(1, 1, 1) },
+        uViewInside: { value: 0.0 },
+        uTime: { value: 0.0 },
+        uDotsOn: { value: 0.0 },
+    },
+    transparent: true,
+    depthWrite: false,
+});
+
+const dotsPoints = new THREE.Points(dotsGeometry, dotsMaterial);
+sphereGroup.add(dotsPoints);
+
+const hitSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(SPHERE_RADIUS, 32, 32),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+);
+sphereGroup.add(hitSphere);
+
+const surfaceMaterial = new THREE.ShaderMaterial({
+    vertexShader: `
+        varying vec3 vPosition;
+        varying vec3 vNormal;
+        void main() {
+            vPosition = position;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        precision mediump float;
+        uniform vec3 uHoverPoint;
+        uniform float uHoverActive;
+        uniform float uSurfaceOn;
+        uniform vec3 uSurfColor;
+        varying vec3 vPosition;
+        varying vec3 vNormal;
+        void main() {
+            float dist = distance(vPosition, uHoverPoint);
+            float glow = 1.0 - smoothstep(0.0, 1.2, dist);
+            glow = pow(glow, 2.0);
+            float alpha = glow * uHoverActive * uSurfaceOn * 0.35;
+            gl_FragColor = vec4(uSurfColor, alpha);
+        }
+    `,
+    uniforms: {
+        uHoverPoint: dotsMaterial.uniforms.uHoverPoint,
+        uHoverActive: dotsMaterial.uniforms.uHoverActive,
+        uSurfaceOn: { value: 0.0 },
+        uSurfColor: { value: new THREE.Color(1, 1, 1) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+});
+const surfaceSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(SPHERE_RADIUS * 0.995, 64, 64),
+    surfaceMaterial
+);
+surfaceSphere.renderOrder = -1;
+sphereGroup.add(surfaceSphere);
+
+let currentLatCount = LATITUDE_COUNT;
+let currentLonCount = LONGITUDE_COUNT;
+
+function rebuildGrid(latCount, lonCount) {
+    const toRemove = [];
+    sphereGroup.children.forEach(c => { if (c instanceof THREE.Line) toRemove.push(c); });
+    toRemove.forEach(c => { sphereGroup.remove(c); c.geometry.dispose(); c.material.dispose(); });
+    buildLatitudeLines(latCount);
+    buildLongitudeLines(lonCount);
+
+    const positions = [];
+    const normals = [];
+    for (let i = 1; i < latCount; i++) {
+        const phi = (i / latCount) * Math.PI;
+        for (let j = 0; j < lonCount; j++) {
+            const theta = (j / lonCount) * Math.PI * 2;
+            const x = SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta);
+            const y = SPHERE_RADIUS * Math.cos(phi);
+            const z = SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta);
+            positions.push(x, y, z);
+            normals.push(x / SPHERE_RADIUS, y / SPHERE_RADIUS, z / SPHERE_RADIUS);
+        }
+    }
+    dotsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    dotsGeometry.setAttribute('vertexNormal', new THREE.Float32BufferAttribute(normals, 3));
+    currentLatCount = latCount;
+    currentLonCount = lonCount;
+    storeOriginals();
+    if (vaseActive && lastVaseProfile) {
+        computeVaseTargets(lastVaseProfile);
+    }
+}
+
+// ============================================================
+// Vase Geometry Morphing
+// ============================================================
+
+const origPositions = new Map();
+
+function storeOriginals() {
+    origPositions.clear();
+    sphereGroup.children.forEach(child => {
+        if (child instanceof THREE.Line || child instanceof THREE.Points) {
+            const pos = child.geometry.getAttribute('position');
+            origPositions.set(child.geometry, new Float32Array(pos.array));
+        }
+    });
+}
+
+storeOriginals();
+
+let vaseActive = false;
+let vaseLerp = 0;
+let lastVaseProfile = null;
+const vaseTargets = new Map();
+
+const VASE_PROFILES = [
+    (t) => {
+        if (t < 0.1) return 0.3 + 0.15 * Math.sin(t / 0.1 * Math.PI);
+        if (t < 0.25) return 0.3 - 0.18 * ((t - 0.1) / 0.15);
+        const b = Math.sin((t - 0.25) / 0.75 * Math.PI);
+        return 0.12 + 0.88 * Math.pow(b, 0.7);
+    },
+    (t) => {
+        if (t < 0.06) return 0.18;
+        if (t < 0.45) return 0.18 - 0.08 * Math.sin((t - 0.06) / 0.39 * Math.PI);
+        return 0.1 + 0.55 * Math.pow(Math.sin((t - 0.45) / 0.55 * Math.PI), 0.5);
+    },
+    (t) => {
+        if (t < 0.55) return 0.03 + 0.04 * (t / 0.55);
+        return 0.07 + 0.93 * Math.pow((t - 0.55) / 0.45, 0.35);
+    },
+    (t) => {
+        const g1 = 0.6 * Math.exp(-Math.pow((t - 0.28) * 5, 2));
+        const g2 = 0.9 * Math.exp(-Math.pow((t - 0.72) * 3.5, 2));
+        return 0.06 + g1 + g2;
+    },
+    (t) => {
+        if (t < 0.08) return 0.4;
+        if (t < 0.18) return 0.4 - 0.2 * ((t - 0.08) / 0.1);
+        return 0.2 + 0.8 * Math.pow(Math.sin((t - 0.15) / 0.85 * Math.PI), 0.45);
+    },
+    (t) => {
+        const base = Math.sin(t * Math.PI);
+        const wave = 0.18 * Math.sin(t * Math.PI * 5);
+        return Math.max(0.04, 0.4 * base + 0.6 * Math.pow(base, 0.5) + wave * base);
+    },
+    (t) => {
+        const d = Math.abs(t - 0.5);
+        return 0.1 + 0.9 * (0.25 + 0.75 * Math.pow(2 * d, 0.7));
+    },
+    (t) => {
+        if (t < 0.12) return 0.55 * (1 - t / 0.12) + 0.12;
+        if (t < 0.35) return 0.12 + 0.03 * Math.sin((t - 0.12) / 0.23 * Math.PI);
+        return 0.12 + 0.65 * Math.pow(Math.sin((t - 0.35) / 0.65 * Math.PI), 0.55);
+    },
+    (t) => {
+        return 0.7 * Math.pow(Math.sin(t * Math.PI), 0.65) * (1 + 0.4 * t);
+    },
+    (t) => {
+        if (t < 0.15) return 0.5;
+        if (t < 0.3) return 0.5 - 0.35 * ((t - 0.15) / 0.15);
+        if (t < 0.6) return 0.15;
+        return 0.15 + 0.85 * Math.pow(Math.sin((t - 0.6) / 0.4 * Math.PI), 0.4);
+    },
+    (t) => {
+        const g1 = 0.45 * Math.exp(-Math.pow((t - 0.2) * 6, 2));
+        const g2 = 0.55 * Math.exp(-Math.pow((t - 0.55) * 4, 2));
+        const g3 = 0.7 * Math.exp(-Math.pow((t - 0.85) * 5, 2));
+        return 0.05 + g1 + g2 + g3;
+    },
+    (t) => {
+        if (t < 0.5) return 0.05 + 0.95 * Math.pow(t / 0.5, 0.8);
+        return 1.0 - 0.3 * Math.pow((t - 0.5) / 0.5, 0.5);
+    },
+];
+
+function computeVaseTargets(profileFn) {
+    vaseTargets.clear();
+    sphereGroup.children.forEach(child => {
+        if (!(child instanceof THREE.Line) && !(child instanceof THREE.Points)) return;
+        const orig = origPositions.get(child.geometry);
+        if (!orig) return;
+        const target = new Float32Array(orig.length);
+        const count = orig.length / 3;
+        for (let i = 0; i < count; i++) {
+            const ox = orig[i * 3];
+            const oy = orig[i * 3 + 1];
+            const oz = orig[i * 3 + 2];
+            const origR = Math.sqrt(ox * ox + oz * oz);
+            const phi = Math.atan2(origR, oy);
+            const theta = Math.atan2(oz, ox);
+            const t = phi / Math.PI;
+            const newR = profileFn(t) * SPHERE_RADIUS;
+            target[i * 3] = newR * Math.cos(theta);
+            target[i * 3 + 1] = oy;
+            target[i * 3 + 2] = newR * Math.sin(theta);
+        }
+        vaseTargets.set(child.geometry, target);
+    });
+}
+
+function updateGeometry(time) {
+    sphereGroup.children.forEach(child => {
+        if (!(child instanceof THREE.Line) && !(child instanceof THREE.Points)) return;
+        const orig = origPositions.get(child.geometry);
+        if (!orig) return;
+        const pos = child.geometry.getAttribute('position');
+        const arr = pos.array;
+        for (let i = 0; i < orig.length; i++) arr[i] = orig[i];
+
+        if (vaseLerp > 0) {
+            const target = vaseTargets.get(child.geometry);
+            if (target) {
+                for (let i = 0; i < arr.length; i++) arr[i] += (target[i] - orig[i]) * vaseLerp;
+            }
+        }
+
+        if (waveActive) {
+            const wi = WAVE_STEPS[waveIndex];
+            const count = arr.length / 3;
+            for (let i = 0; i < count; i++) {
+                const x = arr[i*3], y = arr[i*3+1], z = arr[i*3+2];
+                const d = (Math.sin(y*3 + time*2) * 0.15
+                        + Math.sin(x*2.5 + time*1.7) * 0.1
+                        + Math.cos(z*4 + time*2.5) * 0.08) * wi;
+                arr[i*3] *= (1+d);
+                arr[i*3+1] *= (1+d);
+                arr[i*3+2] *= (1+d);
+            }
+        }
+
+        if (noiseActive) {
+            const ni = NOISE_STEPS[noiseIndex];
+            const count = arr.length / 3;
+            const t = time * 1.5;
+            for (let i = 0; i < count; i++) {
+                const x = arr[i*3], y = arr[i*3+1], z = arr[i*3+2];
+                const d = (Math.sin(x * 4.1 + t) * Math.cos(y * 3.7 + t * 0.7)
+                         + Math.sin(y * 5.3 + t * 1.1) * Math.cos(z * 2.9 + t * 0.5)
+                         + Math.sin(z * 3.3 + t * 0.9) * Math.cos(x * 4.7 + t * 1.3)) * 0.33 * ni;
+                arr[i*3] += x * d;
+                arr[i*3+1] += y * d;
+                arr[i*3+2] += z * d;
+            }
+        }
+
+        if (flatLerp > 0) {
+            const count = arr.length / 3;
+            for (let i = 0; i < count; i++) arr[i*3+2] *= (1 - flatLerp);
+        }
+
+        pos.needsUpdate = true;
+    });
+}
+
+scene.add(sphereGroup);
+
+// ============================================================
+// Party Stars
+// ============================================================
+
+const STAR_COUNT = 300;
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(STAR_COUNT * 3);
+const starSizes = new Float32Array(STAR_COUNT);
+for (let i = 0; i < STAR_COUNT; i++) {
+    starPos[i*3]   = (Math.random() - 0.5) * 12;
+    starPos[i*3+1] = (Math.random() - 0.5) * 12;
+    starPos[i*3+2] = (Math.random() - 0.5) * 12;
+    starSizes[i] = 0.5 + Math.random() * 2.0;
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.025,
+    transparent: true,
+    opacity: 0,
+    sizeAttenuation: true,
+});
+const starField = new THREE.Points(starGeo, starMat);
+scene.add(starField);
+
+// ============================================================
+// Mouse Tracking & Raycasting
+// ============================================================
+
+const mouse = { x: 0, y: 0 };
+const mouseRay = new THREE.Vector2();
+const raycaster = new THREE.Raycaster();
+const currentRotation = { x: 0, y: 0 };
+const MAX_ROTATION = Math.PI / 4;
+const LERP_FACTOR = 0.05;
+let currentHoverActive = 0.0;
+
+window.addEventListener('mousemove', (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = (event.clientY / window.innerHeight) * 2 - 1;
+
+    mouseRay.x = mouse.x;
+    mouseRay.y = -mouse.y;
+});
+
+// ============================================================
+// Info Card - Click Detection & Positioning
+// ============================================================
+
+const cardOverlay = document.getElementById('card-overlay');
+const infoCard = document.getElementById('info-card');
+const cardCloseBtn = document.getElementById('card-close');
+const connectorLine = document.getElementById('connector-line');
+
+let selectedDot = null;
+const selectedDotLocal = new THREE.Vector3();
+const DOT_CLICK_THRESHOLD = 0.35;
+const CARD_EDGE_MARGIN = 30;
+
+function findNearestDot(localPoint) {
+    let minDist = Infinity;
+    let nearestIdx = -1;
+
+    for (let i = 0; i < intersectionPositions.length; i += 3) {
+        const dx = intersectionPositions[i] - localPoint.x;
+        const dy = intersectionPositions[i + 1] - localPoint.y;
+        const dz = intersectionPositions[i + 2] - localPoint.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (dist < minDist) {
+            minDist = dist;
+            nearestIdx = i;
+        }
+    }
+
+    return { index: nearestIdx, distance: minDist };
+}
+
+function projectToScreen(localPos) {
+    const worldPos = localPos.clone();
+    sphereGroup.localToWorld(worldPos);
+    worldPos.project(camera);
+
+    return {
+        x: (worldPos.x * 0.5 + 0.5) * window.innerWidth,
+        y: (-worldPos.y * 0.5 + 0.5) * window.innerHeight,
+    };
+}
+
+function positionCard() {
+    if (!selectedDot) return;
+
+    const screen = projectToScreen(selectedDotLocal);
+    const cardRect = infoCard.getBoundingClientRect();
+    const cardW = cardRect.width || 380;
+    const cardH = cardRect.height || 400;
+    const screenCenter = window.innerWidth / 2;
+
+    let cardX, lineEndX, lineEndY;
+
+    if (screen.x <= screenCenter) {
+        cardX = window.innerWidth - CARD_EDGE_MARGIN - cardW;
+        lineEndX = cardX;
+    } else {
+        cardX = CARD_EDGE_MARGIN;
+        lineEndX = cardX + cardW;
+    }
+
+    let cardY = screen.y - cardH / 2;
+    cardY = Math.max(CARD_EDGE_MARGIN, Math.min(window.innerHeight - cardH - CARD_EDGE_MARGIN, cardY));
+
+    lineEndY = cardY + cardH / 2;
+
+    infoCard.style.left = cardX + 'px';
+    infoCard.style.top = cardY + 'px';
+
+    connectorLine.setAttribute('x1', screen.x);
+    connectorLine.setAttribute('y1', screen.y);
+    connectorLine.setAttribute('x2', lineEndX);
+    connectorLine.setAttribute('y2', lineEndY);
+}
+
+function openCard(dotIndex) {
+    selectedDot = dotIndex;
+    selectedDotLocal.set(
+        intersectionPositions[dotIndex],
+        intersectionPositions[dotIndex + 1],
+        intersectionPositions[dotIndex + 2]
+    );
+
+    cardOverlay.classList.add('visible');
+    positionCard();
+
+    requestAnimationFrame(() => {
+        infoCard.classList.add('show');
+    });
+}
+
+function closeCard() {
+    infoCard.classList.remove('show');
+    setTimeout(() => {
+        cardOverlay.classList.remove('visible');
+        selectedDot = null;
+    }, 300);
+}
+
+/* Card click handlers disabled for Phase 1 - Floating Buttons
+renderer.domElement.addEventListener('click', (event) => {
+    const clickRay = new THREE.Vector2(
+        (event.clientX / window.innerWidth) * 2 - 1,
+        -(event.clientY / window.innerHeight) * 2 + 1
+    );
+    raycaster.setFromCamera(clickRay, camera);
+    const hits = raycaster.intersectObject(hitSphere);
+    if (hits.length > 0) {
+        const localPoint = sphereGroup.worldToLocal(hits[0].point.clone());
+        const nearest = findNearestDot(localPoint);
+        if (nearest.distance < DOT_CLICK_THRESHOLD) {
+            if (selectedDot === nearest.index) { closeCard(); }
+            else { openCard(nearest.index); }
+            return;
+        }
+    }
+    if (selectedDot !== null) { closeCard(); }
+});
+cardCloseBtn.addEventListener('click', (event) => { event.stopPropagation(); closeCard(); });
+infoCard.addEventListener('click', (event) => { event.stopPropagation(); });
+*/
+
+// ============================================================
+// Floating Orbital Buttons
+// ============================================================
+
+const orbitBtns = document.querySelectorAll('.orbit-btn');
+const BTN_COUNT = orbitBtns.length;
+const btnParallax = { x: 0, y: 0 };
+const BTN_PARALLAX_LERP = 0.02;
+const ORBIT_PADDING = 45;
+
+const btnData = [];
+for (let i = 0; i < BTN_COUNT; i++) {
+    btnData.push({
+        angle: (i / BTN_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+        freq: 0.8 + Math.random() * 0.4,
+        radiusOffset: Math.random() * 40 - 20,
+    });
+}
+
+function getSphereScreenR() {
+    const halfFov = (camera.fov / 2) * Math.PI / 180;
+    const camZ = Math.max(camera.position.z, 0.5);
+    const frustumHH = camZ * Math.tan(halfFov);
+    return (SPHERE_RADIUS / frustumHH) * (window.innerHeight / 2);
+}
+
+const connectorSvg = document.getElementById('btn-connectors');
+const btnPositions = [];
+
+let dotsAlwaysOn = false;
+let effectPulse = false;
+let targetScale = 1.0;
+let currentScaleVal = 1.0;
+const rotateTarget = { x: 0, y: 0 };
+const currentRotateOff = { x: 0, y: 0 };
+const baseColor = new THREE.Color(1, 1, 1);
+
+let waveActive = false;
+let echoActive = false;
+let flatActive = false;
+let flatLerp = 0;
+let spinActive = false;
+let noiseActive = false;
+
+const SCALE_STEPS = [0.5, 0.75, 1.0, 1.35, 1.8];
+const SCALE_DEFAULT = 2;
+let scaleIndex = SCALE_DEFAULT;
+
+const DENSITY_MULTS = [0.5, 1.0, 2.0, 3.0];
+const DENSITY_DEFAULT = 1;
+let densityIndex = DENSITY_DEFAULT;
+
+const WAVE_STEPS = [0, 0.3, 0.6, 1.0, 1.5];
+const WAVE_DEFAULT = 0;
+let waveIndex = WAVE_DEFAULT;
+
+const PULSE_STEPS = [0, 1.5, 3.0, 5.0, 8.0];
+const PULSE_DEFAULT = 0;
+let pulseIndex = PULSE_DEFAULT;
+
+const ECHO_STEPS = [0, 0.2, 0.35, 0.5, 0.7];
+const ECHO_DEFAULT = 0;
+let echoIndex = ECHO_DEFAULT;
+
+const SPIN_STEPS = [0, 0.002, 0.005, 0.01, 0.02];
+const SPIN_DEFAULT = 0;
+let spinIndex = SPIN_DEFAULT;
+
+const NOISE_STEPS = [0, 0.02, 0.04, 0.08, 0.15];
+const NOISE_DEFAULT = 0;
+let noiseIndex = NOISE_DEFAULT;
+
+function applyDensity() {
+    const mult = DENSITY_MULTS[densityIndex];
+    rebuildGrid(Math.round(LATITUDE_COUNT * mult), Math.round(LONGITUDE_COUNT * mult));
+    setLineBaseColor(baseColor);
+    const gridBtn = document.querySelector('[data-id="grid"]');
+    if (gridBtn && !gridBtn.classList.contains('active')) {
+        sphereGroup.children.forEach(child => {
+            if (child instanceof THREE.Line) child.visible = false;
+        });
+    }
+}
+
+function updateSliderThumb(btn) {
+    const id = btn.dataset.id;
+    const slider = btn.querySelector('.btn-slider');
+    if (!slider) return;
+    const thumb = slider.querySelector('.slider-thumb');
+    let idx, len, def;
+    if (id === 'scale') { idx = scaleIndex; len = SCALE_STEPS.length; def = SCALE_DEFAULT; }
+    else if (id === 'density') { idx = densityIndex; len = DENSITY_MULTS.length; def = DENSITY_DEFAULT; }
+    else if (id === 'wave') { idx = waveIndex; len = WAVE_STEPS.length; def = WAVE_DEFAULT; }
+    else if (id === 'pulse') { idx = pulseIndex; len = PULSE_STEPS.length; def = PULSE_DEFAULT; }
+    else if (id === 'echo') { idx = echoIndex; len = ECHO_STEPS.length; def = ECHO_DEFAULT; }
+    else if (id === 'spin') { idx = spinIndex; len = SPIN_STEPS.length; def = SPIN_DEFAULT; }
+    else if (id === 'noise') { idx = noiseIndex; len = NOISE_STEPS.length; def = NOISE_DEFAULT; }
+    else return;
+    thumb.style.left = (idx / (len - 1)) * 100 + '%';
+    btn.classList.toggle('active', idx !== def);
+}
+
+function setLineBaseColor(color) {
+    sphereGroup.children.forEach(child => {
+        if (child instanceof THREE.Line && child.material.uniforms && child.material.uniforms.uColor) {
+            child.material.uniforms.uColor.value.copy(color);
+        }
+    });
+}
+
+function handleEffect(id, isActive, btn) {
+    switch (id) {
+        case 'grid':
+            sphereGroup.children.forEach(child => {
+                if (child instanceof THREE.Line) child.visible = isActive;
+            });
+            break;
+        case 'dots':
+            dotsAlwaysOn = isActive;
+            dotsMaterial.uniforms.uDotsOn.value = isActive ? 1.0 : 0.0;
+            break;
+        case 'rotate':
+            if (isActive) {
+                rotateTarget.x += (Math.random() - 0.5) * Math.PI / 2;
+                rotateTarget.y += (Math.random() - 0.5) * Math.PI / 2;
+                setTimeout(() => btn.classList.remove('active'), 600);
+            }
+            break;
+        case 'scale':
+            if (!isActive) { scaleIndex = SCALE_DEFAULT; targetScale = 1.0; }
+            break;
+        case 'density':
+            if (!isActive) { densityIndex = DENSITY_DEFAULT; applyDensity(); }
+            break;
+        case 'pulse':
+            effectPulse = isActive;
+            if (!isActive) pulseIndex = PULSE_DEFAULT;
+            break;
+        case 'vase':
+            vaseActive = isActive;
+            if (isActive) {
+                lastVaseProfile = VASE_PROFILES[Math.floor(Math.random() * VASE_PROFILES.length)];
+                computeVaseTargets(lastVaseProfile);
+            }
+            break;
+        case 'invert':
+            document.documentElement.classList.toggle('inverted', isActive);
+            break;
+        case 'wave':
+            waveActive = isActive;
+            if (!isActive) waveIndex = WAVE_DEFAULT;
+            break;
+        case 'echo':
+            echoActive = isActive;
+            if (!isActive) echoIndex = ECHO_DEFAULT;
+            break;
+        case 'flat':
+            flatActive = isActive;
+            break;
+        case 'spin':
+            spinActive = isActive;
+            if (!isActive) spinIndex = SPIN_DEFAULT;
+            break;
+        case 'noise':
+            noiseActive = isActive;
+            if (!isActive) noiseIndex = NOISE_DEFAULT;
+            break;
+    }
+}
+
+function syncEffect(btn) {
+    handleEffect(btn.dataset.id, btn.classList.contains('active'), btn);
+}
+
+function resetSliderBtn(btn) {
+    const id = btn.dataset.id;
+    if (id === 'scale') { scaleIndex = SCALE_DEFAULT; targetScale = 1.0; }
+    else if (id === 'density') { densityIndex = DENSITY_DEFAULT; applyDensity(); }
+    else if (id === 'wave') { waveIndex = WAVE_DEFAULT; waveActive = false; }
+    else if (id === 'pulse') { pulseIndex = PULSE_DEFAULT; effectPulse = false; }
+    else if (id === 'echo') { echoIndex = ECHO_DEFAULT; echoActive = false; }
+    else if (id === 'spin') { spinIndex = SPIN_DEFAULT; spinActive = false; }
+    else if (id === 'noise') { noiseIndex = NOISE_DEFAULT; noiseActive = false; }
+    btn.classList.remove('active');
+    updateSliderThumb(btn);
+}
+
+orbitBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (btn.classList.contains('has-slider')) {
+            resetSliderBtn(btn);
+            return;
+        }
+        btn.classList.toggle('active');
+        handleEffect(btn.dataset.id, btn.classList.contains('active'), btn);
+    });
+    btnPositions.push({ x: 0, y: 0 });
+});
+
+document.querySelectorAll('.btn-slider').forEach(slider => {
+    const btn = slider.closest('.orbit-btn');
+    const id = btn.dataset.id;
+    function setFromX(clientX) {
+        const rect = slider.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        if (id === 'scale') {
+            scaleIndex = Math.round(pct * (SCALE_STEPS.length - 1));
+            targetScale = SCALE_STEPS[scaleIndex];
+        } else if (id === 'density') {
+            const prev = densityIndex;
+            densityIndex = Math.round(pct * (DENSITY_MULTS.length - 1));
+            if (densityIndex !== prev) applyDensity();
+        } else if (id === 'wave') {
+            waveIndex = Math.round(pct * (WAVE_STEPS.length - 1));
+            waveActive = waveIndex > WAVE_DEFAULT;
+        } else if (id === 'pulse') {
+            pulseIndex = Math.round(pct * (PULSE_STEPS.length - 1));
+            effectPulse = pulseIndex > PULSE_DEFAULT;
+        } else if (id === 'echo') {
+            echoIndex = Math.round(pct * (ECHO_STEPS.length - 1));
+            echoActive = echoIndex > ECHO_DEFAULT;
+        } else if (id === 'spin') {
+            spinIndex = Math.round(pct * (SPIN_STEPS.length - 1));
+            spinActive = spinIndex > SPIN_DEFAULT;
+        } else if (id === 'noise') {
+            noiseIndex = Math.round(pct * (NOISE_STEPS.length - 1));
+            noiseActive = noiseIndex > NOISE_DEFAULT;
+        }
+        updateSliderThumb(btn);
+    }
+    slider.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setFromX(e.clientX);
+        const onMove = (ev) => setFromX(ev.clientX);
+        const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    });
+});
+
+document.querySelectorAll('.has-slider').forEach(btn => updateSliderThumb(btn));
+
+function updateButtons(time) {
+    btnParallax.x += (currentRotation.x - btnParallax.x) * BTN_PARALLAX_LERP;
+    btnParallax.y += (currentRotation.y - btnParallax.y) * BTN_PARALLAX_LERP;
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const parallaxX = btnParallax.y * 40;
+    const parallaxY = btnParallax.x * 25;
+    const sphereR = getSphereScreenR();
+
+    const center3D = new THREE.Vector3(0, 0, 0);
+    sphereGroup.localToWorld(center3D);
+    center3D.project(camera);
+    const sCx = (center3D.x * 0.5 + 0.5) * window.innerWidth;
+    const sCy = (-center3D.y * 0.5 + 0.5) * window.innerHeight;
+
+    let connHTML = '';
+    const vif = viewInsideFactor;
+    const leftCount = Math.ceil(BTN_COUNT / 2);
+    const sideMargin = 30;
+    const sideSpacing = 58;
+
+    for (let i = 0; i < BTN_COUNT; i++) {
+        const d = btnData[i];
+        const btn = orbitBtns[i];
+        const bw = btn.offsetWidth / 2;
+        const bh = btn.offsetHeight / 2;
+
+        const r = sphereR + ORBIT_PADDING + d.radiusOffset;
+        const bobX = Math.sin(time * 0.5 * d.freq + d.phase) * 6;
+        const bobY = Math.cos(time * 0.35 * d.freq + d.phase) * 10;
+        const orbX = cx + r * Math.cos(d.angle) + bobX + parallaxX;
+        const orbY = cy + r * Math.sin(d.angle) + bobY + parallaxY;
+
+        const isLeft = i < leftCount;
+        const sideIdx = isLeft ? i : i - leftCount;
+        const sideCount = isLeft ? leftCount : BTN_COUNT - leftCount;
+        const sideX = isLeft ? sideMargin + bw : window.innerWidth - sideMargin - bw;
+        const startY = (window.innerHeight - sideCount * sideSpacing) / 2;
+        const sideY = startY + sideIdx * sideSpacing + bh;
+
+        const x = orbX + (sideX - orbX) * vif;
+        const y = orbY + (sideY - orbY) * vif;
+
+        btnPositions[i].x = x;
+        btnPositions[i].y = y;
+        btn.style.transform = 'translate(' + (x - bw) + 'px,' + (y - bh) + 'px)';
+
+        if (btn.classList.contains('active') && vif < 0.5) {
+            const dx = x - sCx;
+            const dy = y - sCy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const edgeX = sCx + nx * sphereR;
+                const edgeY = sCy + ny * sphereR;
+                connHTML += '<line x1="' + edgeX + '" y1="' + edgeY +
+                    '" x2="' + x + '" y2="' + y +
+                    '" stroke="#fff" stroke-width="0.5" stroke-opacity="0.3"/>';
+            }
+        }
+    }
+
+    connectorSvg.innerHTML = connHTML;
+}
+
+// ============================================================
+// Top Toolbar (Reset / Random / Party)
+// ============================================================
+
+let partyMode = false;
+let partyInterval = null;
+
+const PARTY_COLORS = [
+    new THREE.Color('#FF3CAC'), new THREE.Color('#D946EF'),
+    new THREE.Color('#B700FF'), new THREE.Color('#8B5CF6'),
+    new THREE.Color('#6366F1'), new THREE.Color('#3B82F6'),
+    new THREE.Color('#06B6D4'), new THREE.Color('#14B8A6'),
+];
+
+function stopParty() {
+    partyMode = false;
+    document.querySelector('[data-action="party"]').classList.remove('active');
+    if (partyInterval) { clearInterval(partyInterval); partyInterval = null; }
+    setLineBaseColor(baseColor);
+    dotsMaterial.uniforms.uDotColor.value.copy(baseColor);
+    dotsMaterial.uniforms.uMaxSize.value = 0.4;
+}
+
+function randomizeSlider(btn) {
+    const id = btn.dataset.id;
+    if (id === 'scale') {
+        scaleIndex = Math.floor(Math.random() * SCALE_STEPS.length);
+        targetScale = SCALE_STEPS[scaleIndex];
+    } else if (id === 'density') {
+        densityIndex = Math.floor(Math.random() * DENSITY_MULTS.length);
+        applyDensity();
+    } else if (id === 'wave') {
+        waveIndex = Math.floor(Math.random() * WAVE_STEPS.length);
+        waveActive = waveIndex > WAVE_DEFAULT;
+    } else if (id === 'pulse') {
+        pulseIndex = Math.floor(Math.random() * PULSE_STEPS.length);
+        effectPulse = pulseIndex > PULSE_DEFAULT;
+    } else if (id === 'echo') {
+        echoIndex = Math.floor(Math.random() * ECHO_STEPS.length);
+        echoActive = echoIndex > ECHO_DEFAULT;
+    } else if (id === 'spin') {
+        spinIndex = Math.floor(Math.random() * SPIN_STEPS.length);
+        spinActive = spinIndex > SPIN_DEFAULT;
+    } else if (id === 'noise') {
+        noiseIndex = Math.floor(Math.random() * NOISE_STEPS.length);
+        noiseActive = noiseIndex > NOISE_DEFAULT;
+    }
+    updateSliderThumb(btn);
+}
+
+function setSliderHigh(btn) {
+    const id = btn.dataset.id;
+    if (id === 'scale') { scaleIndex = SCALE_STEPS.length - 2; targetScale = SCALE_STEPS[scaleIndex]; }
+    else if (id === 'density') { densityIndex = DENSITY_MULTS.length - 2; applyDensity(); }
+    else if (id === 'wave') { waveIndex = WAVE_STEPS.length - 2; waveActive = true; }
+    else if (id === 'pulse') { pulseIndex = PULSE_STEPS.length - 2; effectPulse = true; }
+    else if (id === 'echo') { echoIndex = ECHO_STEPS.length - 2; echoActive = true; }
+    else if (id === 'spin') { spinIndex = SPIN_STEPS.length - 2; spinActive = true; }
+    else if (id === 'noise') { noiseIndex = NOISE_STEPS.length - 2; noiseActive = true; }
+    btn.classList.add('active');
+    updateSliderThumb(btn);
+}
+
+document.querySelector('[data-action="reset"]').addEventListener('click', () => {
+    orbitBtns.forEach(btn => {
+        if (btn.classList.contains('has-slider')) { resetSliderBtn(btn); return; }
+        btn.classList.remove('active');
+        syncEffect(btn);
+    });
+    if (partyMode) stopParty();
+    targetScale = 1.0;
+    rotateTarget.x = 0; rotateTarget.y = 0;
+});
+
+document.querySelector('[data-action="random"]').addEventListener('click', () => {
+    if (partyMode) stopParty();
+    orbitBtns.forEach(btn => {
+        const id = btn.dataset.id;
+        if (id === 'grid' || id === 'invert') return;
+        if (btn.classList.contains('has-slider')) {
+            randomizeSlider(btn);
+        } else {
+            if (Math.random() > 0.5) btn.classList.add('active');
+            else btn.classList.remove('active');
+            syncEffect(btn);
+        }
+    });
+});
+
+document.querySelector('[data-action="party"]').addEventListener('click', function() {
+    partyMode = !partyMode;
+    this.classList.toggle('active');
+    if (partyMode) {
+        orbitBtns.forEach(btn => {
+            const id = btn.dataset.id;
+            if (id === 'grid' || id === 'invert') return;
+            if (btn.classList.contains('has-slider')) {
+                setSliderHigh(btn);
+            } else {
+                btn.classList.add('active');
+                syncEffect(btn);
+            }
+        });
+    } else {
+        stopParty();
+        orbitBtns.forEach(btn => {
+            if (btn.classList.contains('has-slider')) { resetSliderBtn(btn); return; }
+            btn.classList.remove('active');
+            syncEffect(btn);
+        });
+    }
+});
+
+// ============================================================
+// Inside View
+// ============================================================
+
+let insideView = false;
+let viewInsideFactor = 0;
+let targetCamZ = 5;
+let targetFov = 50;
+const dofOverlay = document.getElementById('dof-overlay');
+
+document.querySelector('[data-action="inside"]').addEventListener('click', function() {
+    insideView = !insideView;
+    this.classList.toggle('active');
+    targetCamZ = insideView ? 0.01 : 5;
+    targetFov = insideView ? 130 : 50;
+    dofOverlay.classList.toggle('active', insideView);
+    document.body.classList.toggle('inside-view', insideView);
+});
+
+// ============================================================
+// State Snapshot & Metadata
+// ============================================================
+
+function getStateSnapshot() {
+    return {
+        grid: document.querySelector('[data-id="grid"]').classList.contains('active'),
+        dots: document.querySelector('[data-id="dots"]').classList.contains('active'),
+        wave: waveIndex, pulse: pulseIndex, echo: echoIndex,
+        spin: spinIndex, noise: noiseIndex,
+        scale: scaleIndex, density: densityIndex,
+        flat: flatActive, vase: vaseActive,
+        invert: document.documentElement.classList.contains('inverted'),
+        rotX: rotateTarget.x, rotY: rotateTarget.y,
+        insideView: insideView, partyMode: partyMode,
+    };
+}
+
+function getActiveEffectsList(s) {
+    const fx = [];
+    if (!s.grid) fx.push('Grid Off');
+    if (s.dots) fx.push('Dots');
+    if (s.wave > 0) fx.push('Wave ' + WAVE_STEPS[s.wave]);
+    if (s.pulse > 0) fx.push('Pulse');
+    if (s.echo > 0) fx.push('Echo');
+    if (s.spin > 0) fx.push('Spin');
+    if (s.noise > 0) fx.push('Noise');
+    if (s.flat) fx.push('Flat');
+    if (s.vase) fx.push('Vase');
+    if (s.invert) fx.push('Invert');
+    if (s.insideView) fx.push('Inside');
+    if (s.partyMode) fx.push('Party');
+    if (s.scale !== SCALE_DEFAULT) fx.push('Scale ' + SCALE_STEPS[s.scale] + '\u00d7');
+    if (s.density !== DENSITY_DEFAULT) fx.push('Density ' + DENSITY_MULTS[s.density] + '\u00d7');
+    return fx;
+}
+
+function drawMetadata(ctx, w, h) {
+    const s = getStateSnapshot();
+    const fx = getActiveEffectsList(s);
+    const d = new Date();
+    const ds = d.toLocaleDateString('en-GB');
+    const ts = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const lines = [
+        'SPHERE LAB                    ' + ds + '  ' + ts,
+        '\u2500'.repeat(48),
+        'SYS    ' + w + ' \u00d7 ' + h + '  \u00b7  30fps',
+        'FX     ' + (fx.length ? fx.join(' \u00b7 ') : 'Default'),
+    ];
+
+    const lh = 15;
+    const pad = 12;
+    const boxW = Math.min(440, w - 40);
+    const boxH = lines.length * lh + pad * 2;
+    const x = pad;
+    const y = h - boxH - pad;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, boxW - 1, boxH - 1);
+
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.textBaseline = 'top';
+    lines.forEach((line, i) => {
+        if (i === 0) ctx.fillStyle = 'rgba(255, 143, 244, 0.5)';
+        else ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.fillText(line, x + pad, y + pad + i * lh);
+    });
+}
+
+function restoreState(s) {
+    orbitBtns.forEach(btn => {
+        if (btn.classList.contains('has-slider')) resetSliderBtn(btn);
+        else { btn.classList.remove('active'); syncEffect(btn); }
+    });
+    if (partyMode) stopParty();
+
+    if (s.grid) { const b = document.querySelector('[data-id="grid"]'); b.classList.add('active'); syncEffect(b); }
+    if (s.dots) { const b = document.querySelector('[data-id="dots"]'); b.classList.add('active'); syncEffect(b); }
+    if (s.flat) { const b = document.querySelector('[data-id="flat"]'); b.classList.add('active'); syncEffect(b); }
+    if (s.vase) { const b = document.querySelector('[data-id="vase"]'); b.classList.add('active'); syncEffect(b); }
+    if (s.invert) { const b = document.querySelector('[data-id="invert"]'); b.classList.add('active'); syncEffect(b); }
+
+    waveIndex = s.wave; waveActive = waveIndex > WAVE_DEFAULT;
+    pulseIndex = s.pulse; effectPulse = pulseIndex > PULSE_DEFAULT;
+    echoIndex = s.echo; echoActive = echoIndex > ECHO_DEFAULT;
+    spinIndex = s.spin; spinActive = spinIndex > SPIN_DEFAULT;
+    noiseIndex = s.noise; noiseActive = noiseIndex > NOISE_DEFAULT;
+    scaleIndex = s.scale; targetScale = SCALE_STEPS[scaleIndex];
+    densityIndex = s.density; applyDensity();
+    document.querySelectorAll('.has-slider').forEach(btn => updateSliderThumb(btn));
+
+    rotateTarget.x = s.rotX;
+    rotateTarget.y = s.rotY;
+
+    if (s.insideView !== insideView) {
+        document.querySelector('[data-action="inside"]').click();
+    }
+}
+
+// ============================================================
+// Library
+// ============================================================
+
+const LIB_KEY = 'sphere_lab_library';
+const libPanel = document.getElementById('library-panel');
+const libList = document.getElementById('lib-list');
+
+function loadLib() {
+    try { return JSON.parse(localStorage.getItem(LIB_KEY)) || []; }
+    catch (e) { return []; }
+}
+function saveLib(lib) {
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch (e) {}
+}
+
+function addToLibrary(type, sourceCanvas) {
+    const lib = loadLib();
+    const state = getStateSnapshot();
+    const tc = document.createElement('canvas');
+    tc.width = 120; tc.height = 68;
+    const tctx = tc.getContext('2d');
+    tctx.drawImage(sourceCanvas, 0, 0, 120, 68);
+    const thumb = tc.toDataURL('image/jpeg', 0.5);
+
+    lib.unshift({
+        id: 'c_' + Date.now(),
+        type: type,
+        ts: Date.now(),
+        thumb: thumb,
+        state: state,
+    });
+    if (lib.length > 50) lib.pop();
+    saveLib(lib);
+    renderLibrary();
+}
+
+function renderLibrary() {
+    const lib = loadLib();
+    if (!lib.length) {
+        libList.innerHTML = '<div id="lib-empty">No captures yet</div>';
+        return;
+    }
+    libList.innerHTML = '';
+    lib.forEach(entry => {
+        const d = new Date(entry.ts);
+        const ds = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const ts = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const fx = getActiveEffectsList(entry.state);
+
+        const div = document.createElement('div');
+        div.className = 'lib-item';
+        div.innerHTML =
+            '<img class="lib-thumb" src="' + entry.thumb + '" alt="">' +
+            '<div class="lib-meta">' +
+                '<div class="lib-type"><span class="lib-type-tag">' + entry.type.toUpperCase() + '</span> \u00b7 ' + ds + ' ' + ts + '</div>' +
+                '<div class="lib-fx">' + (fx.length ? fx.join(' \u00b7 ') : 'Default') + '</div>' +
+            '</div>' +
+            '<div class="lib-actions">' +
+                '<button class="lib-action" data-lib="restore" data-id="' + entry.id + '" title="Restore">' +
+                    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l-2 2 2 2"/><path d="M2 6h8c2 0 3 1 3 3s-1 3-3 3H8"/></svg>' +
+                '</button>' +
+                '<button class="lib-action" data-lib="delete" data-id="' + entry.id + '" title="Delete">' +
+                    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8M12 4l-8 8"/></svg>' +
+                '</button>' +
+            '</div>';
+        libList.appendChild(div);
+    });
+}
+
+libList.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('[data-lib]');
+    if (!actionBtn) return;
+    const action = actionBtn.dataset.lib;
+    const id = actionBtn.dataset.id;
+    const lib = loadLib();
+    if (action === 'restore') {
+        const entry = lib.find(x => x.id === id);
+        if (entry) restoreState(entry.state);
+    } else if (action === 'delete') {
+        saveLib(lib.filter(x => x.id !== id));
+        renderLibrary();
+    }
+});
+
+document.querySelector('[data-action="library"]').addEventListener('click', () => {
+    libPanel.classList.toggle('open');
+});
+document.getElementById('lib-close').addEventListener('click', () => {
+    libPanel.classList.remove('open');
+});
+renderLibrary();
+
+// ============================================================
+// Screen Capture & Recording
+// ============================================================
+
+let mediaRecorder = null;
+let recordedChunks = [];
+let vidRecording = false;
+const VID_SECS = 8;
+
+document.querySelector('[data-action="record"]').addEventListener('click', function() {
+    if (vidRecording) return;
+    vidRecording = true;
+    isRecording = true;
+    const btn = this;
+    btn.classList.add('active', 'rec-active');
+    btn.querySelector('span').textContent = '0%';
+
+    drawComposite();
+    const stream = compCanvas.captureStream(30);
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+    mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+        videoBitsPerSecond: 20000000,
+    });
+    recordedChunks = [];
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sphere_' + Date.now() + '.webm';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        addToLibrary('video', compCanvas);
+        vidRecording = false;
+        isRecording = false;
+        btn.classList.remove('active', 'rec-active');
+        btn.querySelector('span').textContent = 'Rec';
+    };
+    mediaRecorder.start();
+
+    const startT = performance.now();
+    const durMs = VID_SECS * 1000;
+    function checkProgress() {
+        if (!vidRecording) return;
+        const elapsed = performance.now() - startT;
+        const pct = Math.min(100, Math.round((elapsed / durMs) * 100));
+        btn.querySelector('span').textContent = pct + '%';
+        if (elapsed >= durMs) {
+            mediaRecorder.stop();
+        } else {
+            requestAnimationFrame(checkProgress);
+        }
+    }
+    requestAnimationFrame(checkProgress);
+});
+
+document.querySelector('[data-action="photo"]').addEventListener('click', function() {
+    drawComposite();
+    drawMetadata(compCtx, compCanvas.width, compCanvas.height);
+    const dataUrl = compCanvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = 'sphere_' + Date.now() + '.png';
+    a.click();
+    addToLibrary('image', compCanvas);
+});
+
+// ============================================================
+// GIF Encoder (inline, no dependencies)
+// ============================================================
+
+function lzwEncode(minCS, data) {
+    const clr = 1 << minCS, eoi = clr + 1;
+    let cs = minCS + 1, nc = eoi + 1;
+    const out = [];
+    let acc = 0, bits = 0;
+    function emit(c) { acc |= (c << bits); bits += cs; while (bits >= 8) { out.push(acc & 0xff); acc >>>= 8; bits -= 8; } }
+    let dict = new Map();
+    function rst() { dict = new Map(); for (let i = 0; i < clr; i++) dict.set(String.fromCharCode(i), i); nc = eoi + 1; cs = minCS + 1; }
+    rst(); emit(clr);
+    if (!data.length) { emit(eoi); if (bits > 0) out.push(acc & 0xff); return out; }
+    let w = String.fromCharCode(data[0]);
+    for (let i = 1; i < data.length; i++) {
+        const ch = String.fromCharCode(data[i]);
+        const wk = w + ch;
+        if (dict.has(wk)) { w = wk; }
+        else {
+            emit(dict.get(w));
+            if (nc < 4096) { dict.set(wk, nc); if (nc >= (1 << cs) && cs < 12) cs++; nc++; }
+            else { emit(clr); rst(); }
+            w = ch;
+        }
+    }
+    emit(dict.get(w)); emit(eoi);
+    if (bits > 0) out.push(acc & 0xff);
+    return out;
+}
+
+function buildGIF(frames, gw, gh, delay) {
+    const b = [];
+    const w8 = v => b.push(v & 0xff);
+    const w16 = v => { b.push(v & 0xff); b.push((v >> 8) & 0xff); };
+    const wS = s => { for (let i = 0; i < s.length; i++) b.push(s.charCodeAt(i)); };
+
+    const pal = [];
+    for (let r = 0; r < 6; r++) for (let g = 0; g < 6; g++) for (let bl = 0; bl < 6; bl++) pal.push(r * 51, g * 51, bl * 51);
+    while (pal.length < 768) pal.push(0, 0, 0);
+
+    wS('GIF89a'); w16(gw); w16(gh); w8(0xf7); w8(0); w8(0);
+    for (let i = 0; i < 768; i++) w8(pal[i]);
+    w8(0x21); w8(0xff); w8(0x0b); wS('NETSCAPE2.0'); w8(3); w8(1); w16(0); w8(0);
+
+    frames.forEach(rgba => {
+        w8(0x21); w8(0xf9); w8(4); w8(0x04); w16(delay); w8(0); w8(0);
+        w8(0x2c); w16(0); w16(0); w16(gw); w16(gh); w8(0);
+        const idx = new Uint8Array(gw * gh);
+        for (let i = 0; i < gw * gh; i++) {
+            idx[i] = Math.min(5, Math.round(rgba[i * 4] / 51)) * 36
+                   + Math.min(5, Math.round(rgba[i * 4 + 1] / 51)) * 6
+                   + Math.min(5, Math.round(rgba[i * 4 + 2] / 51));
+        }
+        w8(8);
+        const enc = lzwEncode(8, idx);
+        let p = 0;
+        while (p < enc.length) { const n = Math.min(255, enc.length - p); w8(n); for (let i = 0; i < n; i++) w8(enc[p++]); }
+        w8(0);
+    });
+    w8(0x3b);
+    return new Blob([new Uint8Array(b)], { type: 'image/gif' });
+}
+
+let gifCapturing = false;
+const GIF_W = 1080, GIF_FPS = 30, GIF_SECS = 8;
+
+document.querySelector('[data-action="gif"]').addEventListener('click', function() {
+    if (gifCapturing) return;
+    gifCapturing = true;
+    this.classList.add('gif-progress');
+    this.querySelector('span').textContent = '0%';
+
+    const gifH = GIF_W;
+    const fc = document.createElement('canvas');
+    fc.width = GIF_W; fc.height = gifH;
+    const fctx = fc.getContext('2d');
+    const frames = [];
+    const totalFrames = GIF_FPS * GIF_SECS;
+    const interval = 1000 / GIF_FPS;
+    const btn = this;
+    let count = 0;
+
+    const captureTimer = setInterval(() => {
+        drawComposite();
+        fctx.drawImage(compCanvas, 0, 0, GIF_W, gifH);
+        frames.push(fctx.getImageData(0, 0, GIF_W, gifH).data);
+        count++;
+        btn.querySelector('span').textContent = Math.round((count / totalFrames) * 100) + '%';
+
+        if (count >= totalFrames) {
+            clearInterval(captureTimer);
+            btn.querySelector('span').textContent = 'Enc...';
+
+            setTimeout(() => {
+                const blob = buildGIF(frames, GIF_W, gifH, Math.round(100 / GIF_FPS));
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'sphere_' + Date.now() + '.gif'; a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+                drawComposite();
+                drawMetadata(compCtx, compCanvas.width, compCanvas.height);
+                addToLibrary('gif', compCanvas);
+
+                gifCapturing = false;
+                btn.classList.remove('gif-progress');
+                btn.querySelector('span').textContent = 'GIF';
+            }, 50);
+        }
+    }, interval);
+});
+
+// ============================================================
+// JSON Animation Preset Export
+// ============================================================
+
+document.querySelector('[data-action="json"]').addEventListener('click', function() {
+    const s = getStateSnapshot();
+    const fx = getActiveEffectsList(s);
+    const preset = {
+        name: 'Sphere Lab',
+        version: 1,
+        exported: new Date().toISOString(),
+        duration: VID_SECS,
+        fps: 30,
+        loop: true,
+        resolution: [1080, 1080],
+        accentColor: accentHex,
+        effects: fx,
+        state: {
+            grid: s.grid,
+            dots: s.dots,
+            flat: s.flat,
+            vase: s.vase,
+            invert: s.invert,
+            insideView: s.insideView,
+            partyMode: s.partyMode,
+            wave: { index: s.wave, value: WAVE_STEPS[s.wave] },
+            pulse: { index: s.pulse, value: PULSE_STEPS[s.pulse] },
+            echo: { index: s.echo, value: ECHO_STEPS[s.echo] },
+            spin: { index: s.spin, value: SPIN_STEPS[s.spin] },
+            noise: { index: s.noise, value: NOISE_STEPS[s.noise] },
+            scale: { index: s.scale, value: SCALE_STEPS[s.scale] },
+            density: { index: s.density, value: DENSITY_MULTS[s.density] },
+            rotation: { x: s.rotX, y: s.rotY },
+        },
+    };
+    const json = JSON.stringify(preset, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sphere_' + Date.now() + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    addToLibrary('json', compCanvas);
+});
+
+// ============================================================
+// Accent Color
+// ============================================================
+
+let accentHex = '#FF8FF4';
+const accentInput = document.getElementById('accent-input');
+
+document.querySelector('[data-action="color"]').addEventListener('click', () => {
+    accentInput.click();
+});
+
+accentInput.addEventListener('input', (e) => {
+    accentHex = e.target.value;
+    document.documentElement.style.setProperty('--accent', accentHex);
+    document.querySelector('.color-swatch').style.background = accentHex;
+});
+
+// ============================================================
+// Animation Loop
+// ============================================================
+
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const time = clock.getElapsedTime();
+
+    camera.position.z += (targetCamZ - camera.position.z) * 0.03;
+    if (Math.abs(camera.fov - targetFov) > 0.05) {
+        camera.fov += (targetFov - camera.fov) * 0.03;
+        camera.updateProjectionMatrix();
+    }
+    viewInsideFactor += ((insideView ? 1.0 : 0.0) - viewInsideFactor) * 0.03;
+    if (viewInsideFactor > 0.001 || viewInsideFactor < 0.999) {
+        sphereGroup.children.forEach(child => {
+            if (child.material && child.material.uniforms && child.material.uniforms.uViewInside) {
+                child.material.uniforms.uViewInside.value = viewInsideFactor;
+            }
+        });
+    }
+
+    const targetRotationY = mouse.x * MAX_ROTATION;
+    const targetRotationX = mouse.y * MAX_ROTATION;
+
+    currentRotation.x += (targetRotationX - currentRotation.x) * LERP_FACTOR;
+    currentRotation.y += (targetRotationY - currentRotation.y) * LERP_FACTOR;
+
+    if (spinActive) {
+        rotateTarget.y += SPIN_STEPS[spinIndex];
+    }
+
+    currentRotateOff.x += (rotateTarget.x - currentRotateOff.x) * 0.04;
+    currentRotateOff.y += (rotateTarget.y - currentRotateOff.y) * 0.04;
+    const rotX = currentRotation.x + currentRotateOff.x;
+    const rotY = currentRotation.y + currentRotateOff.y;
+    sphereGroup.rotation.x = rotX * (1 - flatLerp);
+    sphereGroup.rotation.y = rotY * (1 - flatLerp);
+
+    raycaster.setFromCamera(mouseRay, camera);
+    const intersects = raycaster.intersectObject(hitSphere);
+    let targetHoverActive = 0.0;
+
+    if (intersects.length > 0) {
+        const localPoint = sphereGroup.worldToLocal(intersects[0].point.clone());
+        dotsMaterial.uniforms.uHoverPoint.value.copy(localPoint);
+        targetHoverActive = 1.0;
+    }
+
+    currentHoverActive += (targetHoverActive - currentHoverActive) * 0.1;
+    dotsMaterial.uniforms.uHoverActive.value = currentHoverActive;
+    dotsMaterial.uniforms.uTime.value = time;
+
+    let partyBeat = 0;
+    let partyFlash = 0;
+    if (partyMode) {
+        const bpm = 128;
+        const phase = (time * bpm / 60);
+        partyBeat = Math.pow(Math.max(0, Math.sin(phase * Math.PI)), 0.4);
+        partyFlash = Math.pow(Math.max(0, Math.sin(phase * Math.PI * 2)), 4.0);
+        rotateTarget.y += 0.007;
+    }
+
+    currentScaleVal += (targetScale - currentScaleVal) * 0.05;
+    let sv = currentScaleVal;
+    if (effectPulse) sv *= 1 + Math.sin(time * PULSE_STEPS[pulseIndex]) * 0.05;
+    if (partyMode) sv *= 1.0 + partyBeat * 0.05;
+    sphereGroup.scale.set(sv, sv, sv);
+
+    if (vaseActive && vaseLerp < 1) vaseLerp = Math.min(1, vaseLerp + 0.025);
+    if (!vaseActive && vaseLerp > 0) vaseLerp = Math.max(0, vaseLerp - 0.025);
+    if (flatActive && flatLerp < 1) flatLerp = Math.min(1, flatLerp + 0.03);
+    if (!flatActive && flatLerp > 0) flatLerp = Math.max(0, flatLerp - 0.03);
+
+    if (waveActive || noiseActive || vaseLerp > 0 || flatLerp > 0) {
+        updateGeometry(time);
+    }
+
+    if (partyMode) {
+        const pink = new THREE.Color(accentHex);
+        const white = new THREE.Color(1, 1, 1);
+        const pc = pink.clone().lerp(white, partyFlash * 0.6);
+        pc.multiplyScalar(0.3 + 0.7 * partyBeat);
+        sphereGroup.children.forEach(child => {
+            if (child.material && child.material.uniforms && child.material.uniforms.uColor) {
+                child.material.uniforms.uColor.value.copy(pc);
+            }
+        });
+        dotsMaterial.uniforms.uDotColor.value.copy(pc);
+        dotsMaterial.uniforms.uMaxSize.value = 0.4 * (0.5 + partyBeat * 0.8);
+
+        starMat.opacity = Math.min(1, starMat.opacity + 0.03);
+        starMat.size = 0.02 + partyFlash * 0.025;
+        starField.rotation.y = time * 0.12;
+        starField.rotation.x = Math.sin(time * 0.25) * 0.15;
+    } else {
+        if (starMat.opacity > 0) starMat.opacity = Math.max(0, starMat.opacity - 0.02);
+    }
+
+    updateButtons(time);
+
+    renderer.render(scene, camera);
+
+    if (echoActive) {
+        const ev = ECHO_STEPS[echoIndex];
+        const fadeRate = 0.01 + (1 - ev) * 0.04;
+        echoCtx.globalCompositeOperation = 'destination-out';
+        echoCtx.fillStyle = 'rgba(0,0,0,' + fadeRate + ')';
+        echoCtx.fillRect(0, 0, echoCanvas.width, echoCanvas.height);
+        echoCtx.globalCompositeOperation = 'source-over';
+        echoCtx.globalAlpha = ev;
+        echoCtx.drawImage(renderer.domElement, 0, 0, echoCanvas.width, echoCanvas.height);
+        echoCtx.globalAlpha = 1.0;
+        echoCanvas.style.display = 'block';
+    } else if (echoCanvas.style.display !== 'none') {
+        echoCanvas.style.display = 'none';
+        echoCtx.clearRect(0, 0, echoCanvas.width, echoCanvas.height);
+    }
+
+    if (isRecording) drawComposite();
+}
+
+animate();
+
+// ============================================================
+// Window Resize Handler
+// ============================================================
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    resizeEchoCanvas();
+});
+    </script>
+</body>
+</html>
